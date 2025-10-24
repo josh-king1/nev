@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAU Smart Campus Navigator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Custom font import for aesthetics */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+        }
+        /* Custom scrollbar for faculty list */
+        #faculty-list::-webkit-scrollbar {
+            width: 8px;
+        }
+        #faculty-list::-webkit-scrollbar-thumb {
+            background-color: #3b82f6; /* Blue scrollbar thumb */
+            border-radius: 20px;
+        }
+        /* Loading Spinner Animation */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #3b82f6;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 sm:p-8 pb-20"> <!-- Added pb-20 for bottom navigation clearance -->
+
+    <div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl p-6 sm:p-10">
+
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <!-- AAU Logo Placeholder -->
+            <img src=".//images.jpg" alt="Ambrose Alli University Logo" class="mx-auto mb-4 w-20, h-16" onerror="this.onerror=null; this.src='https://placehold.co/100x100/1f2937/ffffff?text=AAU+Logo'"> 
+            
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-[#1f2937] flex items-center justify-center space-x-3">
+                <i data-lucide="map-pin" class="w-8 h-8 text-[#3b82f6]"></i>
+                <span>AAU Campus Navigator</span>
+            </h1>
+            <p class="text-gray-500 mt-2 text-lg">Ambrose Alli University, Ekpoma, Nigeria</p>
+        </header>
+
+        <!-- Current Location Status and Button -->
+        <div id="location-status-card" class="mb-6 p-4 bg-indigo-50 border-l-4 border-indigo-500 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center shadow-md">
+            <div>
+                <p class="text-sm font-semibold text-indigo-700">Your Current Location:</p>
+                <div id="user-location-display" class="text-md text-indigo-900 font-mono mt-1">
+                    [Click 'Track My Location' to begin]
+                </div>
+            </div>
+            <button id="track-location-btn" onclick="getUserLocation()" 
+                    class="mt-3 sm:mt-0 flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white text-sm font-bold rounded-lg hover:bg-indigo-700 transition duration-150 shadow-lg transform hover:scale-[1.02]">
+                <i data-lucide="locate" class="w-5 h-5"></i>
+                <span>Track My Location</span>
+            </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-8">
+            <div class="relative">
+                <i data-lucide="search" class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                <input type="text" id="search-input" onkeyup="filterFaculties()"
+                       placeholder="Search for a Faculty (e.g., Law, Engineering, Arts)"
+                       class="w-full p-4 pl-10 border border-gray-300 rounded-lg text-lg focus:ring-2 focus:ring-[#3b82f6] focus:border-[#3b82f6] transition duration-150 ease-in-out shadow-sm">
+            </div>
+        </div>
+
+        <!-- Faculty List Container -->
+        <div id="faculty-list" class="space-y-4 max-h-[45vh] overflow-y-auto pr-2">
+            <!-- Faculty cards will be inserted here by JavaScript -->
+        </div>
+
+        <!-- No Results Message -->
+        <div id="no-results" class="text-center py-10 hidden">
+            <i data-lucide="alert-triangle" class="w-12 h-12 mx-auto text-red-500 mb-4"></i>
+            <p class="text-xl text-gray-600 font-semibold">No faculties matched your search query.</p>
+            <p class="text-sm text-gray-400 mt-1">Try searching for a general term like 'Science' or 'Engineering'.</p>
+        </div>
+
+    </div>
+
+    <!-- LLM Insight Modal (Hidden by Default) -->
+    <div id="insight-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 sm:p-8 rounded-xl max-w-lg w-11/12 shadow-2xl transform transition-all duration-300 scale-100">
+            <div class="flex justify-between items-start mb-4 border-b pb-3">
+                <h2 id="modal-title" class="text-2xl font-bold text-[#1f2937] flex items-center space-x-2">
+                    <i data-lucide="lightbulb" class="w-6 h-6 text-yellow-500"></i>
+                    <span id="faculty-name-in-modal">Academic Insight</span>
+                </h2>
+                <button onclick="hideModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div id="modal-content" class="text-gray-700 space-y-4">
+                <!-- Content, loading spinner, or error message goes here -->
+            </div>
+            
+            <div class="mt-6 border-t pt-4">
+                <p class="text-xs text-gray-500 text-center">✨ Powered by Gemini LLM. For informational purposes only.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- About Us Modal (NEW) -->
+    <div id="about-modal" class="fixed inset-0 bg-gray-900 bg-opacity-75 hidden items-center justify-center z-50">
+        <div class="bg-white p-6 sm:p-8 rounded-xl max-w-lg w-11/12 shadow-2xl transform transition-all duration-300 scale-100">
+            <div class="flex justify-between items-start mb-4 border-b pb-3">
+                <h2 id="about-modal-title" class="text-2xl font-bold text-[#1f2937] flex items-center space-x-2">
+                    <i data-lucide="info" class="w-6 h-6 text-blue-600"></i>
+                    <span id="about-title">About This App</span>
+                </h2>
+                <button onclick="hideAboutModal()" class="text-gray-400 hover:text-gray-600">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div id="about-modal-content" class="text-gray-700 space-y-4">
+                <!-- Content will be injected by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Fixed Bottom Navigation Bar (NEW) -->
+    <div id="fixed-bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40">
+        <div class="max-w-4xl mx-auto flex justify-around items-center h-16">
+            
+            <!-- Home (Scroll to Top) -->
+            <button onclick="goToHome()" class="flex flex-col items-center justify-center p-2 text-blue-600 transition duration-150 transform hover:scale-110">
+                <i data-lucide="home" class="w-7 h-7"></i>
+                <span class="text-xs font-medium mt-1 hidden sm:block">Home</span>
+            </button>
+
+            <!-- Copyright/Info Display (for aesthetics/branding) -->
+            <div class="hidden sm:block text-xs text-gray-400 text-center">
+                &copy; 2024 AAU Navigator
+            </div>
+
+            <!-- About Us (Show Modal) -->
+            <button onclick="showAboutUsInfo()" class="flex flex-col items-center justify-center p-2 text-gray-500 transition duration-150 transform hover:scale-110 hover:text-blue-600">
+                <i data-lucide="info" class="w-7 h-7"></i>
+                <span class="text-xs font-medium mt-1 hidden sm:block">About Us</span>
+            </button>
+            
+        </div>
+    </div>
+
+
+    <script>
+        // --- API & Auth Configuration ---
+        const apiKey = ""; // API key is provided at runtime if necessary.
+        const apiUrlBase = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+        // --- FACULTY DATA STRUCTURE (Derived from aau_faculties.md) ---
+        const FACULTIES = [
+            { id: 1, name: "Faculty of Agriculture", icon: "carrot", details: "Includes Agricultural Economics, Animal Science, Crop Science, Soil Science", location: "Near the Teaching and Research Farm, North Campus" },
+            { id: 2, name: "Faculty of Arts", icon: "book-open", details: "Includes English, History & International Studies, Modern Languages, Philosophy, Religious & Cultural Studies, Theatre & Media Arts", location: "Central Academic Core, beside Senate Building" },
+            { id: 3, name: "Faculty of Education", icon: "graduation-cap", details: "Includes Curriculum & Instruction, Educational Foundations & Management, Guidance & Counselling, Physical & Health Education, Vocational & Technical Education", location: "Close to the Sports Complex and Student Affairs" },
+            { id: 4, name: "Faculty of Engineering & Technology", icon: "settings-2", details: "Includes Civil, Electrical/Electronic & Computer, Industrial & Production, and Mechanical Engineering", location: "Dedicated Engineering complex, South-West side of campus" },
+            { id: 5, "name": "Faculty of Environmental Studies", icon: "tree-deciduous", details: "Includes Architecture, Building, Fine & Applied Arts, Geography & Environmental Management", location: "Located near the central library" },
+            { id: 6, name: "Faculty of Law", icon: "gavel", details: "The center for legal studies, preparing future lawyers and jurists.", location: "The Law Auditorium Complex, distinct building on Main Campus" },
+            { id: 7, name: "Faculty of Life Sciences", icon: "dna", details: "Includes Biochemistry, Botany, Microbiology, Zoology", location: "Adjacent to the Science Lecture Theatre, East Campus" },
+            { id: 8, name: "Faculty of Management Sciences", icon: "briefcase", details: "Includes Accounting, Banking & Finance, Business Administration, Public Administration", location: "Annex Block, near the Administrative offices" },
+            { id: 9, name: "Faculty of Physical Sciences", icon: "atom", details: "Includes Chemistry, Computer Science, Mathematics & Statistics, Physics", location: "Main Science Block, adjacent to Faculty of Life Sciences" },
+            { id: 10, name: "Faculty of Social Sciences", icon: "users", details: "Includes Economics, Library & Information Science, Political Science, Psychology, Sociology", location: "The largest complex in the Humanities area" },
+            { id: 11, name: "College of Medicine - Basic Medical Sciences", icon: "microscope", details: "Part of the College of Medicine, focuses on foundational medical science departments (Anatomy, Physiology, etc.).", location: "At the Teaching Hospital premises (Separate from Main Campus)" },
+            { id: 12, name: "College of Medicine - Clinical Sciences", icon: "heart-handshake", details: "Part of the College of Medicine, focuses on patient care and clinical practice departments (Surgery, Pediatrics, etc.).", location: "At the Teaching Hospital premises (Separate from Main Campus)" },
+        ];
+
+        const facultyList = document.getElementById('faculty-list');
+        const searchInput = document.getElementById('search-input');
+        const noResults = document.getElementById('no-results');
+        const insightModal = document.getElementById('insight-modal');
+        const modalContent = document.getElementById('modal-content');
+        const facultyNameInModal = document.getElementById('faculty-name-in-modal');
+        const userLocationDisplay = document.getElementById('user-location-display');
+        const trackLocationBtn = document.getElementById('track-location-btn');
+
+
+        // --- NAVIGATION & ABOUT US FUNCTIONS (NEW) ---
+
+        /**
+         * Smoothly scrolls the user to the top of the page (Home).
+         */
+        function goToHome() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /**
+         * Displays the About Us modal.
+         */
+        function showAboutUsInfo() {
+            const aboutContent = `
+                <p class="mb-3 text-lg font-medium text-blue-700">Welcome to the AAU Smart Campus Navigator!</p>
+                <p class="text-base text-gray-700">
+                    This application is a digital guide for students, staff, and visitors of Ambrose Alli University, Ekpoma, Nigeria. It provides quick access to key information and locations across the campus.
+                </p>
+                <div class="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <p class="text-sm font-semibold text-blue-800">Key Features:</p>
+                    <ul class="list-disc list-inside text-sm text-gray-700 ml-4 space-y-1">
+                        <li>Real-time Location: Track your current GPS coordinates.</li>
+                        <li>Directions: Find one-click navigation to any faculty via Google Maps.</li>
+                        <li>Academic Insight: Get a quick overview of each faculty, powered by the Gemini LLM.</li>
+                    </ul>
+                </div>
+                <p class="text-xs text-gray-500 mt-4 text-center">Developed for Navigational and Information Purposes.</p>
+            `;
+            showAboutModal("About This App", aboutContent);
+        }
+        
+        /**
+         * Shows the general About Modal.
+         * @param {string} title - The title of the modal.
+         * @param {string} contentHtml - The HTML content for the modal body.
+         */
+        function showAboutModal(title, contentHtml) {
+            document.getElementById('about-title').textContent = title;
+            document.getElementById('about-modal-content').innerHTML = contentHtml;
+            document.getElementById('about-modal').classList.remove('hidden');
+            document.getElementById('about-modal').classList.add('flex');
+            lucide.createIcons();
+        }
+
+        /**
+         * Hides the About Modal.
+         */
+        function hideAboutModal() {
+            document.getElementById('about-modal').classList.add('hidden');
+            document.getElementById('about-modal').classList.remove('flex');
+        }
+
+
+        // --- GEOLOCATION & NAVIGATION FUNCTIONS ---
+
+        /**
+         * Uses the browser's Geolocation API to find the user's real-world coordinates.
+         */
+        function getUserLocation() {
+            if (!navigator.geolocation) {
+                userLocationDisplay.innerHTML = '<span class="text-red-600">Geolocation is not supported by your browser.</span>';
+                return;
+            }
+
+            // Temporarily update UI to show loading state
+            trackLocationBtn.innerHTML = '<div class="spinner w-5 h-5 border-2"></div><span class="ml-2">Tracking...</span>';
+            trackLocationBtn.disabled = true;
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude.toFixed(5);
+                    const lon = position.coords.longitude.toFixed(5);
+                    userLocationDisplay.innerHTML = `<span class="font-bold">Lat:</span> ${lat}, <span class="font-bold">Lon:</span> ${lon}`;
+                    
+                    // Restore button state
+                    trackLocationBtn.innerHTML = '<i data-lucide="locate" class="w-5 h-5"></i><span>Track My Location</span>';
+                    trackLocationBtn.disabled = false;
+                    lucide.createIcons();
+                },
+                (error) => {
+                    let message = 'Error getting location.';
+                    if (error.code === error.PERMISSION_DENIED) {
+                        message = 'Location permission denied. Please enable location services in your browser settings.';
+                    } else if (error.code === error.POSITION_UNAVAILABLE) {
+                        message = 'Location information is unavailable.';
+                    }
+                    userLocationDisplay.innerHTML = `<span class="text-red-600 font-semibold">Error:</span> ${message}`;
+
+                    // Restore button state
+                    trackLocationBtn.innerHTML = '<i data-lucide="locate" class="w-5 h-5"></i><span>Track My Location</span>';
+                    trackLocationBtn.disabled = false;
+                    lucide.createIcons();
+                },
+                { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+            );
+        }
+
+        /**
+         * Opens Google Maps to find directions to the specified faculty.
+         * @param {string} facultyName - The name of the faculty to navigate to.
+         */
+        function getDirections(facultyName) {
+            // We use the full university name + faculty name for the most relevant Google Maps search result.
+            const destinationQuery = `${facultyName}, Ambrose Alli University, Ekpoma, Nigeria`;
+            const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destinationQuery)}`;
+            window.open(mapUrl, '_blank');
+        }
+
+
+        // --- LLM API Utility Functions ---
+
+        /**
+         * Generic fetch function with exponential backoff for retries.
+         */
+        async function fetchWithRetry(url, options, retries = 3) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (response.ok) return response;
+                    
+                    // If not OK, but not a 429, we might not want to retry, but we will for simplicity.
+                    const errorData = await response.json();
+                    console.error('API Error Response:', errorData);
+
+                    if (response.status === 429 && i < retries - 1) { // Too Many Requests
+                        const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        continue;
+                    }
+
+                    throw new Error(`API request failed with status ${response.status}`);
+                } catch (error) {
+                    if (i === retries - 1) {
+                        throw new Error(`Failed after ${retries} attempts: ${error.message}`);
+                    }
+                    const delay = Math.pow(2, i) * 1000 + Math.random() * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        /**
+         * Displays the LLM Insight modal box.
+         * @param {string} facultyName - The name of the faculty being analyzed.
+         * @param {string} contentHtml - The HTML content to display in the modal body.
+         */
+        function showModal(facultyName, contentHtml) {
+            facultyNameInModal.textContent = facultyName;
+            modalContent.innerHTML = contentHtml;
+            insightModal.classList.remove('hidden');
+            insightModal.classList.add('flex');
+            lucide.createIcons();
+        }
+
+        /**
+         * Hides the LLM Insight modal box.
+         */
+        function hideModal() {
+            insightModal.classList.add('hidden');
+            insightModal.classList.remove('flex');
+        }
+
+
+        /**
+         * Calls the Gemini API to get academic insight for a faculty.
+         * @param {string} facultyName - The name of the faculty.
+         * @param {string} facultyLocation - The location description of the faculty.
+         */
+        async function getFacultyInsight(facultyName, facultyLocation) {
+            const loadingHtml = `
+                <div class="flex flex-col items-center justify-center py-8">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-lg text-[#3b82f6] font-medium">Generating academic insight for ${facultyName}...</p>
+                    <p class="text-sm text-gray-400 mt-2">This may take a moment.</p>
+                </div>
+            `;
+            
+            showModal(facultyName, loadingHtml);
+
+            const systemPrompt = `You are a helpful and knowledgeable academic advisor for Ambrose Alli University (AAU) in Ekpoma, Nigeria. Your task is to provide a concise, high-level overview of the specified faculty at AAU. The response must be approximately 100 words, focusing on:
+1. The faculty's main academic purpose or core study area.
+2. Key research or departmental specializations (if known, or general ones).
+3. Primary career paths for graduates.
+Write in an encouraging and professional tone. Do not use markdown headers or bullet points.`;
+            
+            const userQuery = `Provide the academic insight for the ${facultyName} at Ambrose Alli University, Ekpoma, Nigeria. The location is known as: ${facultyLocation}. Incorporate the importance of the location if relevant.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                // Enable Google Search grounding for real-world context
+                tools: [{ "google_search": {} }],
+            };
+
+            try {
+                const response = await fetchWithRetry(apiUrlBase, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const generatedText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (generatedText) {
+                    modalContent.innerHTML = `<p>${generatedText}</p>`;
+                } else {
+                    modalContent.innerHTML = `<p class="text-red-500">Sorry, I couldn't generate an insight for this faculty right now. The LLM response was empty.</p>`;
+                }
+                
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                modalContent.innerHTML = `
+                    <p class="text-red-500 font-semibold">Error: Could not fetch academic insight.</p>
+                    <p class="text-sm text-gray-600">Please check your network connection or try again later. Details: ${error.message}</p>
+                `;
+            }
+            lucide.createIcons();
+        }
+
+        // --- Core Application Logic ---
+
+        /**
+         * Renders the list of faculties based on the provided array.
+         * @param {Array<Object>} facultiesToRender - The array of faculty objects to display.
+         */
+        function renderFaculties(facultiesToRender) {
+            facultyList.innerHTML = ''; // Clear existing list
+            
+            if (facultiesToRender.length === 0) {
+                noResults.classList.remove('hidden');
+            } else {
+                noResults.classList.add('hidden');
+                
+                facultiesToRender.forEach(faculty => {
+                    // Create the faculty card element
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-50 p-5 rounded-lg border border-gray-200 hover:shadow-lg transition duration-200 flex items-start space-x-4';
+                    
+                    // Icon placeholder (Serves as the faculty image/logo)
+                    const iconContainer = `<div class="p-3 bg-blue-100 rounded-full text-[#3b82f6] flex-shrink-0">
+                                            <i data-lucide="${faculty.icon}" class="w-6 h-6"></i>
+                                         </div>`;
+
+                    // Content
+                    const content = `<div class="flex-grow">
+                                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-1">
+                                            <h3 class="text-xl font-semibold text-[#1f2937]">${faculty.name}</h3>
+                                        </div>
+                                        <p class="text-gray-600 text-sm mt-1">${faculty.details || 'General academic and administrative block.'}</p>
+                                        
+                                        <!-- LOCATION DISPLAY -->
+                                        <div class="flex items-center text-sm text-gray-500 mt-2">
+                                            <i data-lucide="map-pin" class="w-4 h-4 mr-2 text-red-500 flex-shrink-0"></i>
+                                            <span class="font-medium">${faculty.location}</span>
+                                        </div>
+
+                                        <!-- ACTION BUTTONS -->
+                                        <div class="flex flex-wrap gap-2 mt-4">
+                                            <!-- Academic Insight Button -->
+                                            <button onclick="getFacultyInsight('${faculty.name.replace(/'/g, "\\'")}', '${faculty.location.replace(/'/g, "\\'")}')" 
+                                                    class="flex items-center space-x-1 px-3 py-1 bg-yellow-500 text-[#1f2937] text-sm font-medium rounded-full hover:bg-yellow-400 transition duration-150 shadow-md transform hover:scale-[1.05]">
+                                                <i data-lucide="sparkles" class="w-4 h-4 fill-current"></i>
+                                                <span>Academic Insight</span>
+                                            </button>
+                                            
+                                            <!-- Get Directions Button -->
+                                            <button onclick="getDirections('${faculty.name.replace(/'/g, "\\'")}')" 
+                                                    class="flex items-center space-x-1 px-3 py-1 bg-green-500 text-white text-sm font-medium rounded-full hover:bg-green-600 transition duration-150 shadow-md transform hover:scale-[1.05]">
+                                                <i data-lucide="compass" class="w-4 h-4"></i>
+                                                <span>Get Directions</span>
+                                            </button>
+                                        </div>
+                                    </div>`;
+
+                    card.innerHTML = iconContainer + content;
+                    facultyList.appendChild(card);
+                });
+            }
+            
+            // Re-render Lucide icons after adding new elements
+            lucide.createIcons();
+        }
+
+        /**
+         * Filters the faculties based on the search input value.
+         */
+        function filterFaculties() {
+            const query = searchInput.value.toLowerCase().trim();
+
+            const filtered = FACULTIES.filter(faculty => 
+                faculty.name.toLowerCase().includes(query) ||
+                faculty.details.toLowerCase().includes(query) ||
+                faculty.location.toLowerCase().includes(query) // Searches by location too
+            );
+
+            renderFaculties(filtered);
+        }
+
+        // Initial render when the page loads
+        window.onload = () => {
+            renderFaculties(FACULTIES);
+            lucide.createIcons(); // Initialize all icons on load
+        };
+
+        // Modal closing mechanism when clicking outside the modal content
+        insightModal.addEventListener('click', (e) => {
+            if (e.target === insightModal) {
+                hideModal();
+            }
+        });
+
+        // About Modal closing mechanism when clicking outside the modal content
+        document.getElementById('about-modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('about-modal')) {
+                hideAboutModal();
+            }
+        });
+        
+    </script>
+</body>
+</html>
