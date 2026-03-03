@@ -1,0 +1,39 @@
+/* Basic styling for the page (optional) */
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f3f4f6;;
+  margin: 0;
+}
+
+/* 1. Image Styling */
+.loader-image {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+
+  /* Apply the pulse animation */
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+/* 2. Keyframe Animation Definition */
+/* Defines the 'pulse' movement (zoom in/out) */
+@keyframes pulse {
+  0% {
+    /* Starting state: slightly zoomed out */
+    transform: scale(0.85); 
+    opacity: 0.7; /* Optional: Make it slightly transparent when small */
+  }
+  50% {
+    /* Midpoint: fully zoomed in */
+    transform: scale(1.15);
+    opacity: 1.0; /* Fully opaque when large */
+  }
+  100% {
+    /* End state: returns to starting state for a smooth loop */
+    transform: scale(0.85);
+    opacity: 0.7;
+  }
+}
