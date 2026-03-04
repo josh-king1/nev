@@ -1,269 +1,323 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AAU Campus Navigator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AAU Campus Navigator | Real-Time GPS</title>
 
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Leaflet -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        
         body {
             font-family: 'Inter', sans-serif;
             background: #f3f4f6;
-            padding-top: 1rem;
-            padding-bottom: 6rem;
+            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
         }
 
         #map {
-            height: 450px;
+            height: 50vh;
             width: 100%;
-            margin-top: 1rem;
-            margin-bottom: 1rem;
-            z-index: 0;
+            z-index: 1;
+            border-radius: 1rem;
+        }
+
+        /* Real-time Pulse Marker */
+        .user-location-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pulse {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(37, 99, 235, 0.4);
+            border-radius: 50%;
+            animation: pulse-animation 2s infinite;
+        }
+
+        @keyframes pulse-animation {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(3.5); opacity: 0; }
+        }
+
+        .dot {
+            position: relative;
+            width: 14px;
+            height: 14px;
+            background: #2563eb;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+        }
+
+        .glass-nav {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
         }
     </style>
 </head>
 
-<body class="px-4">
+<body class="p-4 pt-4">
 
-    <div class="max-w-6xl mx-auto bg-white shadow-2xl rounded-xl p-6">
+<div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden pb-20">
+    
+    <header class="p-6 text-center border-b bg-white">
+        <h1 class="text-2xl font-800 text-gray-900 flex items-center justify-center gap-2">
+            <i data-lucide="navigation" class="text-blue-600 fill-blue-100"></i>
+            AAU Campus Navigator
+        </h1>
+        <p class="text-gray-500 text-sm">Real-Time GPS Guidance • Ekpoma</p>
+    </header>
 
-        <!-- ================= HEADER ================= -->
-        <header class="text-center mb-8">
-            <img src="../nev/images.jpg" alt="Ambrose Alli University Logo" class="mx-auto mb-4 w-20 h-16"
-                onerror="this.onerror=null;this.src='https://placehold.co/100x100/1f2937/ffffff?text=AAU+Logo'">
-
-            <h1 class="text-3xl sm:text-4xl font-extrabold text-[#1f2937] flex items-center justify-center space-x-3">
-                <i data-lucide="map-pin" class="w-8 h-8 text-blue-500"></i>
-                <span>AAU Campus Navigator</span>
-            </h1>
-
-            <p class="text-gray-500 mt-2 text-lg">
-                Ambrose Alli University, Ekpoma, Nigeria
-            </p>
-        </header>
-
-        <!-- ================= LOCATION SECTION ================= -->
-        <div class="flex flex-col sm:flex-row justify-between items-center bg-blue-50 p-4 rounded-lg mb-6">
-            <div>
-                <p class="font-semibold text-blue-700">Your Current Location:</p>
-                <p id="locationDisplay" class="text-sm text-gray-700">Detecting location...</p>
+    <div class="bg-slate-50 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3 w-full">
+            <div id="statusIndicator" class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            <div class="flex-1">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Satellite Feed</p>
+                <p id="locationDisplay" class="text-sm font-mono text-gray-700">Waiting for GPS signal...</p>
             </div>
-
-            <button onclick="refreshLocation()"
-                class="mt-3 sm:mt-0 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
-                Refresh Location
+            <button onclick="recenterMap()" class="bg-blue-600 text-white p-2.5 rounded-full shadow-lg hover:bg-blue-700 active:scale-90 transition">
+                <i data-lucide="locate-fixed" class="w-5 h-5"></i>
             </button>
-        </div>
-
-        <!-- ================= MAP ================= -->
-        <div id="map" class="rounded-xl shadow-lg"></div>
-
-        <!-- ================= ROUTE INFO ================= -->
-        <div id="routeInfo" class="hidden bg-green-50 border-l-4 border-green-600 p-4 rounded-lg mb-6">
-            <h3 class="font-bold text-green-700">Navigation Info</h3>
-            <p id="distanceInfo"></p>
-            <p id="durationInfo"></p>
-        </div>
-
-        <!-- ================= FACULTIES ================= -->
-        <h2 class="text-xl font-bold mb-4">Faculties</h2>
-        <div id="facultyList" class="grid sm:grid-cols-2 gap-4"></div>
-
-    </div>
-
-    <!-- ================= ABOUT MODAL ================= -->
-    <div id="aboutModal" class="fixed inset-0 hidden items-center justify-center bg-black/60 backdrop-blur-sm z-[9999]">
-        <div id="aboutContent"
-            class="bg-white w-[90%] max-w-md rounded-2xl shadow-2xl p-6 transform scale-95 opacity-0 transition duration-300">
-
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-gray-800">About AAU Navigator</h2>
-                <button onclick="closeAboutUs()" class="text-gray-400 hover:text-red-500 text-xl">&times;</button>
-            </div>
-
-            <p class="text-gray-600 leading-relaxed">
-                AAU Smart Campus Navigator helps students, staff, and visitors
-                move easily around Ambrose Alli University using GPS tracking
-                and smart walking routes.
-            </p>
-
-            <button onclick="closeAboutUs()"
-                class="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
-                Close
-            </button>
-
         </div>
     </div>
 
-    <!-- ================= FIXED BOTTOM NAV ================= -->
-    <div id="fixed-bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-lg z-50">
+    <div class="p-2">
+        <div id="map" class="shadow-inner border-2 border-white"></div>
+    </div>
 
-        <div class="max-w-4xl mx-auto flex justify-around items-center h-16">
-
-            <button onclick="goToHome()"
-                class="flex flex-col items-center p-2 text-blue-600 hover:scale-110 transition">
-                <i data-lucide="home" class="w-7 h-7"></i>
-                <span class="text-xs mt-1 hidden sm:block">Home</span>
-            </button>
-
-            <div class="hidden sm:block text-xs text-gray-400 text-center">
-                © 2024 AAU Navigator
+    <div id="routeInfo" class="hidden mx-4 my-4 p-4 bg-blue-600 text-white rounded-2xl shadow-xl transition-all">
+        <div class="flex justify-between items-start">
+            <div class="flex gap-3">
+                <div class="p-2 bg-white/20 rounded-lg">
+                    <i data-lucide="milestone" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-lg leading-tight" id="destName">Destination</h3>
+                    <p id="distanceInfo" class="text-blue-100 text-sm"></p>
+                    <p id="durationInfo" class="text-xs font-semibold bg-white/20 inline-block px-2 py-0.5 rounded-full mt-1"></p>
+                </div>
             </div>
-
-            <button onclick="showAboutUsInfo()"
-                class="flex flex-col items-center p-2 text-gray-500 hover:text-blue-600 hover:scale-110 transition">
-                <i data-lucide="info" class="w-7 h-7"></i>
-                <span class="text-xs mt-1 hidden sm:block">About Us</span>
+            <button onclick="clearNavigation()" class="bg-white/10 hover:bg-white/20 p-1.5 rounded-full">
+                <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-
         </div>
     </div>
 
-    <script>
+    <div class="px-6 pb-6">
+        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <i data-lucide="map" class="text-blue-600"></i>
+            Explore Faculties
+        </h2>
+        <div id="facultyList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            </div>
+    </div>
+</div>
+
+<nav class="fixed bottom-0 left-0 right-0 glass-nav h-20 flex items-center justify-around px-10 z-[1000]">
+    <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="flex flex-col items-center text-blue-600">
+        <i data-lucide="navigation-2" class="w-6 h-6"></i>
+        <span class="text-[10px] font-bold uppercase mt-1">Navigate</span>
+    </button>
+    <button onclick="showAbout()" class="flex flex-col items-center text-gray-400 hover:text-blue-600 transition">
+        <i data-lucide="help-circle" class="w-6 h-6"></i>
+        <span class="text-[10px] font-bold uppercase mt-1">Help</span>
+    </button>
+</nav>
+
+<div id="aboutModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] hidden items-center justify-center p-6">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-8 shadow-2xl text-center">
+        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
+            <i data-lucide="info" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-xl font-bold mb-2">Campus Navigator</h3>
+        <p class="text-gray-500 text-sm leading-relaxed mb-6">
+            Ensure you are **outdoors** and your **phone's GPS** is on. If the dot isn't moving, try turning your Wi-Fi off and back on.
+        </p>
+        <button onclick="hideAbout()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200">Start Moving</button>
+    </div>
+</div>
+
+<script>
+    lucide.createIcons();
+
+    let map, userMarker, accuracyCircle, destinationMarker, routeLine;
+    let userLat = null, userLon = null, selectedFaculty = null;
+    let isFirstLoad = true;
+    let watchId = null;
+
+    const FACULTIES = [
+        {name:"Faculty of Agriculture", lat:6.7445, lon:6.1403},
+        {name:"Faculty of Arts", lat:6.7432, lon:6.1397},
+        {name:"Faculty of Basic Medical Sciences", lat:6.7415, lon:6.1380},
+        {name:"Faculty of Clinical Sciences", lat:6.7410, lon:6.1375},
+        {name:"Faculty of Education", lat:6.7440, lon:6.1422},
+        {name:"Faculty of Engineering & Tech", lat:6.7440, lon:6.1385},
+        {name:"Faculty of Environmental Studies", lat:6.7420, lon:6.1430},
+        {name:"Faculty of Law", lat:6.7425, lon:6.1412},
+        {name:"Faculty of Life Sciences", lat:6.7430, lon:6.1408},
+        {name:"Faculty of Management Sciences", lat:6.7435, lon:6.1418},
+        {name:"Faculty of Physical Sciences", lat:6.7428, lon:6.1405},
+        {name:"Faculty of Social Sciences", lat:6.7437, lon:6.1399}
+    ];
+
+    function initMap() {
+        // Center on AAU Campus Core
+        map = L.map('map', { 
+            zoomControl: false,
+            attributionControl: false 
+        }).setView([6.7430, 6.1400], 16);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        renderFacultyButtons();
+        startTracking();
+    }
+
+    function renderFacultyButtons() {
+        const list = document.getElementById('facultyList');
+        FACULTIES.forEach(f => {
+            const btn = document.createElement('button');
+            btn.className = "text-left p-4 border-2 border-gray-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all flex justify-between items-center group active:scale-95";
+            btn.innerHTML = `
+                <span class="text-sm font-bold text-gray-700">${f.name}</span>
+                <i data-lucide="navigation" class="w-4 h-4 text-gray-300 group-hover:text-blue-500"></i>
+            `;
+            btn.onclick = () => startNavigation(f);
+            list.appendChild(btn);
+        });
         lucide.createIcons();
+    }
 
-        let map, userMarker, accuracyCircle, destinationMarker, routeLine;
-        let userLat = null, userLon = null, selectedFaculty = null;
-
-        const FACULTIES = [
-            { name: "Faculty of Agriculture", lat: 6.7445, lon: 6.1403 },
-            { name: "Faculty of Arts", lat: 6.7432, lon: 6.1397 },
-            { name: "Faculty of Basic Medical Sciences", lat: 6.7415, lon: 6.1380 },
-            { name: "Faculty of Clinical Sciences", lat: 6.7410, lon: 6.1375 },
-            { name: "Faculty of Education", lat: 6.7440, lon: 6.1422 },
-            { name: "Faculty of Engineering & Technology", lat: 6.7440, lon: 6.1385 },
-            { name: "Faculty of Environmental Studies", lat: 6.7420, lon: 6.1430 },
-            { name: "Faculty of Law", lat: 6.7425, lon: 6.1412 },
-            { name: "Faculty of Life Sciences", lat: 6.7430, lon: 6.1408 },
-            { name: "Faculty of Management Sciences", lat: 6.7435, lon: 6.1418 },
-            { name: "Faculty of Physical Sciences", lat: 6.7428, lon: 6.1405 },
-            { name: "Faculty of Social Sciences", lat: 6.7437, lon: 6.1399 }
-        ];
-
-        // ========== INIT MAP ==========
-        window.onload = function () {
-            map = L.map('map').setView([6.7430, 6.1400], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap'
-            }).addTo(map);
-
-            renderFaculties();
-            initLocationTracking();
+    function startTracking() {
+        if (!navigator.geolocation) {
+            document.getElementById('locationDisplay').innerText = "Browser doesn't support GPS.";
+            return;
         }
 
-        // ========== FACULTY MARKERS ==========
-        function renderFaculties() {
-            const container = document.getElementById("facultyList");
-            container.innerHTML = "";
-            FACULTIES.forEach(f => {
-                L.marker([f.lat, f.lon]).addTo(map).bindPopup(f.name);
-                const div = document.createElement("div");
-                div.className = "bg-gray-50 p-4 rounded-lg shadow hover:shadow-lg transition";
-                div.innerHTML = `<h3 class="font-semibold">${f.name}</h3>
-<button onclick='navigateToFaculty(${JSON.stringify(f)})'
-class="mt-2 bg-green-600 text-white px-3 py-1 rounded">Navigate</button>`;
-                container.appendChild(div);
+        const options = {
+            enableHighAccuracy: true, // IMPORTANT: Forces real hardware GPS
+            maximumAge: 0,
+            timeout: 20000
+        };
+
+        // This stays active and follows you as you walk
+        watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, options);
+    }
+
+    function handleSuccess(pos) {
+        userLat = pos.coords.latitude;
+        userLon = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy;
+
+        // Visual feedback that GPS is working
+        document.getElementById('statusIndicator').className = "w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]";
+        document.getElementById('locationDisplay').innerText = `Live: ${userLat.toFixed(5)}, ${userLon.toFixed(5)} (±${Math.round(accuracy)}m)`;
+
+        const currentPos = [userLat, userLon];
+
+        if (!userMarker) {
+            const pulseIcon = L.divIcon({
+                className: 'user-location-marker',
+                html: '<div class="pulse"></div><div class="dot"></div>',
+                iconSize: [20, 20]
             });
+            userMarker = L.marker(currentPos, { icon: pulseIcon, zIndexOffset: 1000 }).addTo(map);
+            accuracyCircle = L.circle(currentPos, { radius: accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.1 }).addTo(map);
+        } else {
+            userMarker.setLatLng(currentPos);
+            accuracyCircle.setLatLng(currentPos);
+            accuracyCircle.setRadius(accuracy);
         }
 
-        // ========== LOCATION TRACKING ==========
-        function initLocationTracking() {
-            const display = document.getElementById("locationDisplay");
-            if (!navigator.geolocation) {
-                display.innerText = "Geolocation not supported by browser.";
-                return;
+        if (isFirstLoad) {
+            map.flyTo(currentPos, 18);
+            isFirstLoad = false;
+        }
+
+        if (selectedFaculty) updateRoute(selectedFaculty);
+    }
+
+    async function startNavigation(f) {
+        selectedFaculty = f;
+        document.getElementById('destName').innerText = f.name;
+        
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        destinationMarker = L.marker([f.lat, f.lon]).addTo(map).bindPopup(`Destination: ${f.name}`).openPopup();
+        
+        if(userLat) {
+            map.fitBounds([[userLat, userLon], [f.lat, f.lon]], { padding: [80, 80] });
+        }
+        
+        updateRoute(f);
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    async function updateRoute(f) {
+        if (!userLat) return;
+
+        const url = `https://router.project-osrm.org/route/v1/foot/${userLon},${userLat};${f.lon},${f.lat}?overview=full&geometries=geojson`;
+        
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.routes && data.routes.length > 0) {
+                if (routeLine) map.removeLayer(routeLine);
+                
+                routeLine = L.geoJSON(data.routes[0].geometry, {
+                    style: { color: '#2563eb', weight: 6, opacity: 0.8, lineCap: 'round' }
+                }).addTo(map);
+
+                const dist = (data.routes[0].distance / 1000).toFixed(2);
+                const time = Math.round(data.routes[0].duration / 60);
+
+                document.getElementById('routeInfo').classList.remove('hidden');
+                document.getElementById('distanceInfo').innerText = `${dist} km through campus paths`;
+                document.getElementById('durationInfo').innerText = `ETA: ${time} MIN WALK`;
             }
-
-            // initial position
-            navigator.geolocation.getCurrentPosition(pos => {
-                updateUserLocation(pos);
-                navigator.geolocation.watchPosition(updateUserLocation,
-                    err => { display.innerText = "Unable to get location: " + err.message; },
-                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
-            }, err => { display.innerText = "Location access denied." },
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        } catch (err) {
+            console.error("Routing error:", err);
         }
+    }
 
-        function updateUserLocation(pos) {
-            userLat = pos.coords.latitude;
-            userLon = pos.coords.longitude;
-            const accuracy = pos.coords.accuracy;
-
-            document.getElementById("locationDisplay").innerHTML =
-                `Lat: ${userLat.toFixed(5)} | Lon: ${userLon.toFixed(5)}`;
-
-            if (!userMarker) {
-                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup("You are here").openPopup();
-                accuracyCircle = L.circle([userLat, userLon], { radius: accuracy, color: 'blue', fillOpacity: 0.1 }).addTo(map);
-            } else {
-                userMarker.setLatLng([userLat, userLon]);
-                accuracyCircle.setLatLng([userLat, userLon]);
-                accuracyCircle.setRadius(accuracy);
-            }
-
-            map.setView([userLat, userLon], 17);
-
-            // auto redraw route if faculty selected
-            if (selectedFaculty) navigateToFaculty(selectedFaculty, true);
+    function recenterMap() {
+        if (userLat) {
+            map.flyTo([userLat, userLon], 18, { animate: true, duration: 1.5 });
+        } else {
+            alert("Waiting for GPS signal... Try walking outdoors.");
         }
+    }
 
-        // ========== NAVIGATION ==========
-        async function navigateToFaculty(f, auto = false) {
-            if (!userLat) { alert("Location not available yet."); return; }
-            selectedFaculty = f;
+    function clearNavigation() {
+        selectedFaculty = null;
+        if (routeLine) map.removeLayer(routeLine);
+        if (destinationMarker) map.removeLayer(destinationMarker);
+        document.getElementById('routeInfo').classList.add('hidden');
+    }
 
-            if (destinationMarker) map.removeLayer(destinationMarker);
-            if (routeLine) map.removeLayer(routeLine);
+    function handleError(err) {
+        document.getElementById('statusIndicator').className = "w-3 h-3 bg-red-500 rounded-full";
+        let msg = "GPS Signal Lost";
+        if(err.code === 1) msg = "Permission Denied";
+        document.getElementById('locationDisplay').innerText = msg;
+    }
 
-            destinationMarker = L.marker([f.lat, f.lon]).addTo(map).bindPopup(f.name);
+    function showAbout() { document.getElementById('aboutModal').classList.replace('hidden', 'flex'); }
+    function hideAbout() { document.getElementById('aboutModal').classList.replace('flex', 'hidden'); }
 
-            const url = `https://router.project-osrm.org/route/v1/foot/${userLon},${userLat};${f.lon},${f.lat}?overview=full&geometries=geojson`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (!data.routes.length) return;
-
-            routeLine = L.geoJSON(data.routes[0].geometry, { style: { color: "blue", weight: 6 } }).addTo(map);
-
-            const distance = (data.routes[0].distance / 1000).toFixed(2);
-            const duration = (data.routes[0].duration / 60).toFixed(1);
-
-            document.getElementById("routeInfo").classList.remove("hidden");
-            document.getElementById("distanceInfo").innerHTML = `Distance: ${distance} km`;
-            document.getElementById("durationInfo").innerHTML = `Walking Time: ${duration} mins`;
-        }
-
-        // ========== NAVIGATION BUTTON ==========
-        function goToHome() { window.scrollTo({ top: 0, behavior: "smooth" }); }
-        function refreshLocation() { initLocationTracking(); }
-
-        // ========== ABOUT MODAL ==========
-        function showAboutUsInfo() {
-            const modal = document.getElementById("aboutModal");
-            const content = document.getElementById("aboutContent");
-            modal.classList.remove("hidden"); modal.classList.add("flex");
-            setTimeout(() => { content.classList.remove("scale-95", "opacity-0"); content.classList.add("scale-100", "opacity-100"); }, 10);
-        }
-        function closeAboutUs() {
-            const modal = document.getElementById("aboutModal");
-            const content = document.getElementById("aboutContent");
-            content.classList.remove("scale-100", "opacity-100"); content.classList.add("scale-95", "opacity-0");
-            setTimeout(() => { modal.classList.add("hidden"); modal.classList.remove("flex"); }, 300);
-        }
-        document.getElementById("aboutModal").addEventListener("click", function (e) { if (e.target === this) { closeAboutUs(); } });
-        document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeAboutUs(); } });
-    </script>
+    window.onload = initMap;
+</script>
 
 </body>
-
 </html>
