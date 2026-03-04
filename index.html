@@ -4,13 +4,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AAU Campus Navigator - Real Time</title>
+    <title>AAU Campus Navigator</title>
 
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- Leaflet -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -24,6 +27,9 @@
         #map {
             height: 450px;
             width: 100%;
+            margin-top: 1rem;
+            margin-bottom: 1rem;
+            z-index: 0;
         }
     </style>
 </head>
@@ -32,62 +38,95 @@
 
     <div class="max-w-6xl mx-auto bg-white shadow-2xl rounded-xl p-6">
 
+        <!-- ================= HEADER ================= -->
         <header class="text-center mb-8">
-            <h1 class="text-3xl font-bold flex items-center justify-center space-x-2">
-                <i data-lucide="map-pin" class="w-8 h-8 text-blue-600"></i>
+            <img src="../nev/images.jpg" alt="Ambrose Alli University Logo" class="mx-auto mb-4 w-20 h-16"
+                onerror="this.onerror=null;this.src='https://placehold.co/100x100/1f2937/ffffff?text=AAU+Logo'">
+
+            <h1 class="text-3xl sm:text-4xl font-extrabold text-[#1f2937] flex items-center justify-center space-x-3">
+                <i data-lucide="map-pin" class="w-8 h-8 text-blue-500"></i>
                 <span>AAU Campus Navigator</span>
             </h1>
-            <p class="text-gray-500 mt-2">
+
+            <p class="text-gray-500 mt-2 text-lg">
                 Ambrose Alli University, Ekpoma, Nigeria
             </p>
         </header>
 
-        <div class="bg-blue-50 p-4 rounded-lg mb-6">
-            <p class="font-semibold text-blue-700">Your Live Location:</p>
-            <p id="locationDisplay" class="text-sm text-gray-700">Detecting...</p>
+        <!-- ================= LOCATION SECTION ================= -->
+        <div class="flex flex-col sm:flex-row justify-between items-center bg-blue-50 p-4 rounded-lg mb-6">
+            <div>
+                <p class="font-semibold text-blue-700">Your Current Location:</p>
+                <p id="locationDisplay" class="text-sm text-gray-700">Detecting location...</p>
+            </div>
+
+            <button onclick="refreshLocation()"
+                class="mt-3 sm:mt-0 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+                Refresh Location
+            </button>
         </div>
 
-        <div id="map" class="rounded-xl shadow-lg mb-6"></div>
+        <!-- ================= MAP ================= -->
+        <div id="map" class="rounded-xl shadow-lg"></div>
 
+        <!-- ================= ROUTE INFO ================= -->
         <div id="routeInfo" class="hidden bg-green-50 border-l-4 border-green-600 p-4 rounded-lg mb-6">
             <h3 class="font-bold text-green-700">Navigation Info</h3>
             <p id="distanceInfo"></p>
             <p id="durationInfo"></p>
         </div>
 
+        <!-- ================= FACULTIES ================= -->
         <h2 class="text-xl font-bold mb-4">Faculties</h2>
         <div id="facultyList" class="grid sm:grid-cols-2 gap-4"></div>
 
     </div>
 
-    <!-- ABOUT MODAL -->
-    <div id="aboutModal" class="fixed inset-0 hidden items-center justify-center bg-black/60 z-[9999]">
+    <!-- ================= ABOUT MODAL ================= -->
+    <div id="aboutModal" class="fixed inset-0 hidden items-center justify-center bg-black/60 backdrop-blur-sm z-[9999]">
         <div id="aboutContent"
             class="bg-white w-[90%] max-w-md rounded-2xl shadow-2xl p-6 transform scale-95 opacity-0 transition duration-300">
+
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">About</h2>
-                <button onclick="closeAboutUs()" class="text-red-500 text-xl">&times;</button>
+                <h2 class="text-xl font-bold text-gray-800">About AAU Navigator</h2>
+                <button onclick="closeAboutUs()" class="text-gray-400 hover:text-red-500 text-xl">&times;</button>
             </div>
-            <p>
-                AAU Smart Campus Navigator provides real-time GPS tracking,
-                walking routes, and live campus navigation.
+
+            <p class="text-gray-600 leading-relaxed">
+                AAU Smart Campus Navigator helps students, staff, and visitors
+                move easily around Ambrose Alli University using GPS tracking
+                and smart walking routes.
             </p>
+
             <button onclick="closeAboutUs()"
-                class="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                class="mt-6 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
                 Close
             </button>
+
         </div>
     </div>
 
-    <!-- FIXED BOTTOM NAV -->
-    <div class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-lg z-50">
-        <div class="flex justify-around items-center h-16">
-            <button onclick="goToHome()" class="text-blue-600">
+    <!-- ================= FIXED BOTTOM NAV ================= -->
+    <div id="fixed-bottom-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t-4 border-blue-600 shadow-lg z-50">
+
+        <div class="max-w-4xl mx-auto flex justify-around items-center h-16">
+
+            <button onclick="goToHome()"
+                class="flex flex-col items-center p-2 text-blue-600 hover:scale-110 transition">
                 <i data-lucide="home" class="w-7 h-7"></i>
+                <span class="text-xs mt-1 hidden sm:block">Home</span>
             </button>
-            <button onclick="showAboutUsInfo()" class="text-gray-600">
+
+            <div class="hidden sm:block text-xs text-gray-400 text-center">
+                © 2024 AAU Navigator
+            </div>
+
+            <button onclick="showAboutUsInfo()"
+                class="flex flex-col items-center p-2 text-gray-500 hover:text-blue-600 hover:scale-110 transition">
                 <i data-lucide="info" class="w-7 h-7"></i>
+                <span class="text-xs mt-1 hidden sm:block">About Us</span>
             </button>
+
         </div>
     </div>
 
@@ -95,8 +134,7 @@
         lucide.createIcons();
 
         let map, userMarker, accuracyCircle, destinationMarker, routeLine;
-        let userLat = null, userLon = null;
-        let selectedFaculty = null;
+        let userLat = null, userLon = null, selectedFaculty = null;
 
         const FACULTIES = [
             { name: "Faculty of Agriculture", lat: 6.7445, lon: 6.1403 },
@@ -113,74 +151,76 @@
             { name: "Faculty of Social Sciences", lat: 6.7437, lon: 6.1399 }
         ];
 
+        // ========== INIT MAP ==========
         window.onload = function () {
             map = L.map('map').setView([6.7430, 6.1400], 16);
-
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
             }).addTo(map);
 
             renderFaculties();
-            startLiveTracking();
-        };
-
-        function startLiveTracking() {
-            if (!navigator.geolocation) {
-                alert("Geolocation not supported");
-                return;
-            }
-
-            navigator.geolocation.watchPosition(function (pos) {
-
-                userLat = pos.coords.latitude;
-                userLon = pos.coords.longitude;
-                const accuracy = pos.coords.accuracy;
-
-                document.getElementById("locationDisplay").innerHTML =
-                    `Lat: ${userLat.toFixed(5)} | Lon: ${userLon.toFixed(5)}`;
-
-                if (!userMarker) {
-                    userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup("You are here");
-                    accuracyCircle = L.circle([userLat, userLon], { radius: accuracy }).addTo(map);
-                } else {
-                    userMarker.setLatLng([userLat, userLon]);
-                    accuracyCircle.setLatLng([userLat, userLon]);
-                    accuracyCircle.setRadius(accuracy);
-                }
-
-                map.setView([userLat, userLon], 17);
-
-                if (selectedFaculty) {
-                    navigateToFaculty(selectedFaculty, true);
-                }
-
-            }, {
-                enableHighAccuracy: true,
-                maximumAge: 0,
-                timeout: 10000
-            });
+            initLocationTracking();
         }
 
+        // ========== FACULTY MARKERS ==========
         function renderFaculties() {
             const container = document.getElementById("facultyList");
+            container.innerHTML = "";
             FACULTIES.forEach(f => {
                 L.marker([f.lat, f.lon]).addTo(map).bindPopup(f.name);
-
                 const div = document.createElement("div");
-                div.className = "bg-gray-50 p-4 rounded-lg shadow";
-                div.innerHTML = `
-<h3 class="font-semibold">${f.name}</h3>
+                div.className = "bg-gray-50 p-4 rounded-lg shadow hover:shadow-lg transition";
+                div.innerHTML = `<h3 class="font-semibold">${f.name}</h3>
 <button onclick='navigateToFaculty(${JSON.stringify(f)})'
-class="mt-2 bg-green-600 text-white px-3 py-1 rounded">
-Navigate
-</button>`;
+class="mt-2 bg-green-600 text-white px-3 py-1 rounded">Navigate</button>`;
                 container.appendChild(div);
             });
         }
 
-        async function navigateToFaculty(f, auto = false) {
-            if (!userLat) return;
+        // ========== LOCATION TRACKING ==========
+        function initLocationTracking() {
+            const display = document.getElementById("locationDisplay");
+            if (!navigator.geolocation) {
+                display.innerText = "Geolocation not supported by browser.";
+                return;
+            }
 
+            // initial position
+            navigator.geolocation.getCurrentPosition(pos => {
+                updateUserLocation(pos);
+                navigator.geolocation.watchPosition(updateUserLocation,
+                    err => { display.innerText = "Unable to get location: " + err.message; },
+                    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+            }, err => { display.innerText = "Location access denied." },
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        }
+
+        function updateUserLocation(pos) {
+            userLat = pos.coords.latitude;
+            userLon = pos.coords.longitude;
+            const accuracy = pos.coords.accuracy;
+
+            document.getElementById("locationDisplay").innerHTML =
+                `Lat: ${userLat.toFixed(5)} | Lon: ${userLon.toFixed(5)}`;
+
+            if (!userMarker) {
+                userMarker = L.marker([userLat, userLon]).addTo(map).bindPopup("You are here").openPopup();
+                accuracyCircle = L.circle([userLat, userLon], { radius: accuracy, color: 'blue', fillOpacity: 0.1 }).addTo(map);
+            } else {
+                userMarker.setLatLng([userLat, userLon]);
+                accuracyCircle.setLatLng([userLat, userLon]);
+                accuracyCircle.setRadius(accuracy);
+            }
+
+            map.setView([userLat, userLon], 17);
+
+            // auto redraw route if faculty selected
+            if (selectedFaculty) navigateToFaculty(selectedFaculty, true);
+        }
+
+        // ========== NAVIGATION ==========
+        async function navigateToFaculty(f, auto = false) {
+            if (!userLat) { alert("Location not available yet."); return; }
             selectedFaculty = f;
 
             if (destinationMarker) map.removeLayer(destinationMarker);
@@ -191,12 +231,9 @@ Navigate
             const url = `https://router.project-osrm.org/route/v1/foot/${userLon},${userLat};${f.lon},${f.lat}?overview=full&geometries=geojson`;
             const res = await fetch(url);
             const data = await res.json();
-
             if (!data.routes.length) return;
 
-            routeLine = L.geoJSON(data.routes[0].geometry, {
-                style: { color: "blue", weight: 6 }
-            }).addTo(map);
+            routeLine = L.geoJSON(data.routes[0].geometry, { style: { color: "blue", weight: 6 } }).addTo(map);
 
             const distance = (data.routes[0].distance / 1000).toFixed(2);
             const duration = (data.routes[0].duration / 60).toFixed(1);
@@ -206,31 +243,25 @@ Navigate
             document.getElementById("durationInfo").innerHTML = `Walking Time: ${duration} mins`;
         }
 
-        function goToHome() {
-            map.setView([userLat, userLon], 17);
-        }
+        // ========== NAVIGATION BUTTON ==========
+        function goToHome() { window.scrollTo({ top: 0, behavior: "smooth" }); }
+        function refreshLocation() { initLocationTracking(); }
 
+        // ========== ABOUT MODAL ==========
         function showAboutUsInfo() {
             const modal = document.getElementById("aboutModal");
             const content = document.getElementById("aboutContent");
-            modal.classList.remove("hidden");
-            modal.classList.add("flex");
-            setTimeout(() => {
-                content.classList.remove("scale-95", "opacity-0");
-                content.classList.add("scale-100", "opacity-100");
-            }, 10);
+            modal.classList.remove("hidden"); modal.classList.add("flex");
+            setTimeout(() => { content.classList.remove("scale-95", "opacity-0"); content.classList.add("scale-100", "opacity-100"); }, 10);
         }
-
         function closeAboutUs() {
             const modal = document.getElementById("aboutModal");
             const content = document.getElementById("aboutContent");
-            content.classList.remove("scale-100", "opacity-100");
-            content.classList.add("scale-95", "opacity-0");
-            setTimeout(() => {
-                modal.classList.add("hidden");
-                modal.classList.remove("flex");
-            }, 300);
+            content.classList.remove("scale-100", "opacity-100"); content.classList.add("scale-95", "opacity-0");
+            setTimeout(() => { modal.classList.add("hidden"); modal.classList.remove("flex"); }, 300);
         }
+        document.getElementById("aboutModal").addEventListener("click", function (e) { if (e.target === this) { closeAboutUs(); } });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") { closeAboutUs(); } });
     </script>
 
 </body>
