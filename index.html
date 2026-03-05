@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AAU Campus Navigator | Real-Time GPS</title>
+    <title>AAU Navigator | Live GPS</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
@@ -11,313 +11,187 @@
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         
         body {
-            font-family: 'Inter', sans-serif;
-            background: #f3f4f6;
-            overscroll-behavior-y: contain; /* Prevents pull-to-refresh on mobile */
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #f8fafc;
         }
 
         #map {
-            height: 50vh;
+            height: 60vh;
             width: 100%;
             z-index: 1;
-            border-radius: 1rem;
         }
 
-        /* Real-time Pulse Marker */
-        .user-location-marker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .pulse {
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            background: rgba(37, 99, 235, 0.4);
-            border-radius: 50%;
-            animation: pulse-animation 2s infinite;
-        }
-
-        @keyframes pulse-animation {
-            0% { transform: scale(1); opacity: 1; }
-            100% { transform: scale(3.5); opacity: 0; }
-        }
-
-        .dot {
-            position: relative;
-            width: 14px;
-            height: 14px;
+        /* Live Pulse Marker */
+        .user-dot {
+            width: 16px;
+            height: 16px;
             background: #2563eb;
-            border: 2px solid white;
+            border: 3px solid white;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            box-shadow: 0 0 15px rgba(37, 99, 235, 0.8);
         }
 
-        .glass-nav {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        .pulse-ring {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 4px solid #2563eb;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+            opacity: 0;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.5); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
         }
     </style>
 </head>
+<body class="pb-24">
 
-<body class="p-4 pt-4">
-
-<div class="max-w-4xl mx-auto bg-white shadow-2xl rounded-3xl overflow-hidden pb-20">
-    
-    <header class="p-6 text-center border-b bg-white">
-        <h1 class="text-2xl font-800 text-gray-900 flex items-center justify-center gap-2">
-            <i data-lucide="navigation" class="text-blue-600 fill-blue-100"></i>
+    <div class="p-6 bg-white border-b">
+        <h1 class="text-xl font-800 text-gray-900 flex items-center gap-2">
+            <i data-lucide="map-pin" class="text-blue-600"></i>
             AAU Campus Navigator
         </h1>
-        <p class="text-gray-500 text-sm">Real-Time GPS Guidance • Ekpoma</p>
-    </header>
+        <div class="flex items-center gap-2 mt-2">
+            <div id="gps-status" class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+            <p id="coords" class="text-xs font-mono text-gray-500 uppercase tracking-tighter">Initializing GPS...</p>
+        </div>
+    </div>
 
-    <div class="bg-slate-50 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
-        <div class="flex items-center gap-3 w-full">
-            <div id="statusIndicator" class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-            <div class="flex-1">
-                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Live Satellite Feed</p>
-                <p id="locationDisplay" class="text-sm font-mono text-gray-700">Waiting for GPS signal...</p>
-            </div>
-            <button onclick="recenterMap()" class="bg-blue-600 text-white p-2.5 rounded-full shadow-lg hover:bg-blue-700 active:scale-90 transition">
-                <i data-lucide="locate-fixed" class="w-5 h-5"></i>
+    <div id="map" class="border-b shadow-inner"></div>
+
+    <div class="p-6 max-w-xl mx-auto">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-gray-800">Campus Faculties</h2>
+            <button onclick="recenterMap()" class="p-2 bg-blue-600 text-white rounded-full shadow-lg active:scale-95 transition">
+                <i data-lucide="locate"></i>
             </button>
         </div>
-    </div>
 
-    <div class="p-2">
-        <div id="map" class="shadow-inner border-2 border-white"></div>
-    </div>
-
-    <div id="routeInfo" class="hidden mx-4 my-4 p-4 bg-blue-600 text-white rounded-2xl shadow-xl transition-all">
-        <div class="flex justify-between items-start">
-            <div class="flex gap-3">
-                <div class="p-2 bg-white/20 rounded-lg">
-                    <i data-lucide="milestone" class="w-6 h-6"></i>
-                </div>
-                <div>
-                    <h3 class="font-bold text-lg leading-tight" id="destName">Destination</h3>
-                    <p id="distanceInfo" class="text-blue-100 text-sm"></p>
-                    <p id="durationInfo" class="text-xs font-semibold bg-white/20 inline-block px-2 py-0.5 rounded-full mt-1"></p>
-                </div>
+        <div id="faculty-list" class="grid grid-cols-1 gap-3">
             </div>
-            <button onclick="clearNavigation()" class="bg-white/10 hover:bg-white/20 p-1.5 rounded-full">
-                <i data-lucide="x" class="w-5 h-5"></i>
-            </button>
+    </div>
+
+    <div id="nav-overlay" class="fixed bottom-6 left-6 right-6 bg-blue-600 text-white p-4 rounded-3xl shadow-2xl hidden z-[2000] animate-bounce-short">
+        <div class="flex justify-between items-center">
+            <div>
+                <p class="text-[10px] font-bold uppercase tracking-widest opacity-80">Destination</p>
+                <h3 id="target-name" class="font-bold text-lg leading-tight">Faculty Name</h3>
+            </div>
+            <button onclick="stopNavigation()" class="bg-white/20 p-2 rounded-full"><i data-lucide="x"></i></button>
         </div>
     </div>
 
-    <div class="px-6 pb-6">
-        <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <i data-lucide="map" class="text-blue-600"></i>
-            Explore Faculties
-        </h2>
-        <div id="facultyList" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            </div>
-    </div>
-</div>
+    <script>
+        lucide.createIcons();
 
-<nav class="fixed bottom-0 left-0 right-0 glass-nav h-20 flex items-center justify-around px-10 z-[1000]">
-    <button onclick="window.scrollTo({top:0, behavior:'smooth'})" class="flex flex-col items-center text-blue-600">
-        <i data-lucide="navigation-2" class="w-6 h-6"></i>
-        <span class="text-[10px] font-bold uppercase mt-1">Navigate</span>
-    </button>
-    <button onclick="showAbout()" class="flex flex-col items-center text-gray-400 hover:text-blue-600 transition">
-        <i data-lucide="help-circle" class="w-6 h-6"></i>
-        <span class="text-[10px] font-bold uppercase mt-1">Help</span>
-    </button>
-</nav>
+        // 1. Coordinates for AAU Main Campus Faculties (Estimated)
+        const FACULTIES = [
+            { name: "Faculty of Physical Sciences", lat: 6.7428, lon: 6.1405 },
+            { name: "Faculty of Life Sciences", lat: 6.7430, lon: 6.1408 },
+            { name: "Faculty of Engineering & Tech", lat: 6.7440, lon: 6.1385 },
+            { name: "Faculty of Law", lat: 6.7425, lon: 6.1412 },
+            { name: "Faculty of Social Sciences", lat: 6.7437, lon: 6.1399 },
+            { name: "Faculty of Arts", lat: 6.7432, lon: 6.1397 },
+            { name: "Faculty of Management Sciences", lat: 6.7435, lon: 6.1418 },
+            { name: "Faculty of Agriculture", lat: 6.7445, lon: 6.1403 },
+            { name: "Faculty of Education", lat: 6.7440, lon: 6.1422 }
+        ];
 
-<div id="aboutModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] hidden items-center justify-center p-6">
-    <div class="bg-white rounded-3xl max-w-sm w-full p-8 shadow-2xl text-center">
-        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
-            <i data-lucide="info" class="w-8 h-8"></i>
-        </div>
-        <h3 class="text-xl font-bold mb-2">Campus Navigator</h3>
-        <p class="text-gray-500 text-sm leading-relaxed mb-6">
-            Ensure you are **outdoors** and your **phone's GPS** is on. If the dot isn't moving, try turning your Wi-Fi off and back on.
-        </p>
-        <button onclick="hideAbout()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-blue-200">Start Moving</button>
-    </div>
-</div>
+        let map, userMarker, accuracyCircle, routeLine;
+        let userPos = null;
 
-<script>
-    lucide.createIcons();
+        function initMap() {
+            // Center on AAU Main Gate area
+            map = L.map('map', { zoomControl: false }).setView([6.7430, 6.1400], 15);
 
-    let map, userMarker, accuracyCircle, destinationMarker, routeLine;
-    let userLat = null, userLon = null, selectedFaculty = null;
-    let isFirstLoad = true;
-    let watchId = null;
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19
+            }).addTo(map);
 
-    const FACULTIES = [
-        {name:"Faculty of Agriculture", lat:6.7445, lon:6.1403},
-        {name:"Faculty of Arts", lat:6.7432, lon:6.1397},
-        {name:"Faculty of Basic Medical Sciences", lat:6.7415, lon:6.1380},
-        {name:"Faculty of Clinical Sciences", lat:6.7410, lon:6.1375},
-        {name:"Faculty of Education", lat:6.7440, lon:6.1422},
-        {name:"Faculty of Engineering & Tech", lat:6.7440, lon:6.1385},
-        {name:"Faculty of Environmental Studies", lat:6.7420, lon:6.1430},
-        {name:"Faculty of Law", lat:6.7425, lon:6.1412},
-        {name:"Faculty of Life Sciences", lat:6.7430, lon:6.1408},
-        {name:"Faculty of Management Sciences", lat:6.7435, lon:6.1418},
-        {name:"Faculty of Physical Sciences", lat:6.7428, lon:6.1405},
-        {name:"Faculty of Social Sciences", lat:6.7437, lon:6.1399}
-    ];
+            // Add Faculty Markers
+            FACULTIES.forEach(f => {
+                L.marker([f.lat, f.lon]).addTo(map)
+                    .bindPopup(`<b>${f.name}</b><br>Ekpoma, Edo State`);
+                
+                addFacultyBtn(f);
+            });
 
-    function initMap() {
-        // Center on AAU Campus Core
-        map = L.map('map', { 
-            zoomControl: false,
-            attributionControl: false 
-        }).setView([6.7430, 6.1400], 16);
-        
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19
-        }).addTo(map);
+            startLiveTracking();
+        }
 
-        renderFacultyButtons();
-        startTracking();
-    }
-
-    function renderFacultyButtons() {
-        const list = document.getElementById('facultyList');
-        FACULTIES.forEach(f => {
+        function addFacultyBtn(f) {
             const btn = document.createElement('button');
-            btn.className = "text-left p-4 border-2 border-gray-100 rounded-2xl hover:border-blue-500 hover:bg-blue-50 transition-all flex justify-between items-center group active:scale-95";
+            btn.className = "w-full text-left p-4 bg-white border border-gray-100 rounded-2xl flex justify-between items-center hover:bg-blue-50 transition active:scale-[0.98]";
             btn.innerHTML = `
-                <span class="text-sm font-bold text-gray-700">${f.name}</span>
-                <i data-lucide="navigation" class="w-4 h-4 text-gray-300 group-hover:text-blue-500"></i>
+                <span class="font-semibold text-gray-700">${f.name}</span>
+                <i data-lucide="navigation-2" class="w-4 h-4 text-blue-500"></i>
             `;
             btn.onclick = () => startNavigation(f);
-            list.appendChild(btn);
-        });
-        lucide.createIcons();
-    }
-
-    function startTracking() {
-        if (!navigator.geolocation) {
-            document.getElementById('locationDisplay').innerText = "Browser doesn't support GPS.";
-            return;
+            document.getElementById('faculty-list').appendChild(btn);
+            lucide.createIcons();
         }
 
-        const options = {
-            enableHighAccuracy: true, // IMPORTANT: Forces real hardware GPS
-            maximumAge: 0,
-            timeout: 20000
-        };
+        function startLiveTracking() {
+            if (!navigator.geolocation) return alert("Geolocation not supported");
 
-        // This stays active and follows you as you walk
-        watchId = navigator.geolocation.watchPosition(handleSuccess, handleError, options);
-    }
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    const { latitude, longitude, accuracy } = pos.coords;
+                    userPos = [latitude, longitude];
 
-    function handleSuccess(pos) {
-        userLat = pos.coords.latitude;
-        userLon = pos.coords.longitude;
-        const accuracy = pos.coords.accuracy;
+                    // Update Status UI
+                    document.getElementById('gps-status').classList.replace('bg-red-500', 'bg-green-500');
+                    document.getElementById('coords').innerText = `LAT: ${latitude.toFixed(5)} | LON: ${longitude.toFixed(5)} (±${Math.round(accuracy)}m)`;
 
-        // Visual feedback that GPS is working
-        document.getElementById('statusIndicator').className = "w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)]";
-        document.getElementById('locationDisplay').innerText = `Live: ${userLat.toFixed(5)}, ${userLon.toFixed(5)} (±${Math.round(accuracy)}m)`;
-
-        const currentPos = [userLat, userLon];
-
-        if (!userMarker) {
-            const pulseIcon = L.divIcon({
-                className: 'user-location-marker',
-                html: '<div class="pulse"></div><div class="dot"></div>',
-                iconSize: [20, 20]
-            });
-            userMarker = L.marker(currentPos, { icon: pulseIcon, zIndexOffset: 1000 }).addTo(map);
-            accuracyCircle = L.circle(currentPos, { radius: accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.1 }).addTo(map);
-        } else {
-            userMarker.setLatLng(currentPos);
-            accuracyCircle.setLatLng(currentPos);
-            accuracyCircle.setRadius(accuracy);
+                    // Update Map Marker
+                    if (!userMarker) {
+                        const icon = L.divIcon({
+                            className: 'custom-div-icon',
+                            html: `<div class="pulse-ring"></div><div class="user-dot"></div>`,
+                            iconSize: [40, 40],
+                            iconAnchor: [20, 20]
+                        });
+                        userMarker = L.marker(userPos, { icon }).addTo(map);
+                        accuracyCircle = L.circle(userPos, { radius: accuracy, color: '#2563eb', weight: 1, fillOpacity: 0.1 }).addTo(map);
+                        map.flyTo(userPos, 17);
+                    } else {
+                        userMarker.setLatLng(userPos);
+                        accuracyCircle.setLatLng(userPos).setRadius(accuracy);
+                    }
+                },
+                (err) => console.error(err),
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
         }
 
-        if (isFirstLoad) {
-            map.flyTo(currentPos, 18);
-            isFirstLoad = false;
-        }
-
-        if (selectedFaculty) updateRoute(selectedFaculty);
-    }
-
-    async function startNavigation(f) {
-        selectedFaculty = f;
-        document.getElementById('destName').innerText = f.name;
-        
-        if (destinationMarker) map.removeLayer(destinationMarker);
-        destinationMarker = L.marker([f.lat, f.lon]).addTo(map).bindPopup(`Destination: ${f.name}`).openPopup();
-        
-        if(userLat) {
-            map.fitBounds([[userLat, userLon], [f.lat, f.lon]], { padding: [80, 80] });
-        }
-        
-        updateRoute(f);
-        window.scrollTo({top: 0, behavior: 'smooth'});
-    }
-
-    async function updateRoute(f) {
-        if (!userLat) return;
-
-        const url = `https://router.project-osrm.org/route/v1/foot/${userLon},${userLat};${f.lon},${f.lat}?overview=full&geometries=geojson`;
-        
-        try {
-            const response = await fetch(url);
-            const data = await response.json();
+        function startNavigation(f) {
+            if (!userPos) return alert("Waiting for your GPS location...");
             
-            if (data.routes && data.routes.length > 0) {
-                if (routeLine) map.removeLayer(routeLine);
-                
-                routeLine = L.geoJSON(data.routes[0].geometry, {
-                    style: { color: '#2563eb', weight: 6, opacity: 0.8, lineCap: 'round' }
-                }).addTo(map);
-
-                const dist = (data.routes[0].distance / 1000).toFixed(2);
-                const time = Math.round(data.routes[0].duration / 60);
-
-                document.getElementById('routeInfo').classList.remove('hidden');
-                document.getElementById('distanceInfo').innerText = `${dist} km through campus paths`;
-                document.getElementById('durationInfo').innerText = `ETA: ${time} MIN WALK`;
-            }
-        } catch (err) {
-            console.error("Routing error:", err);
+            // Draw a simple direct line (or use OSRM for road-following)
+            if (routeLine) map.removeLayer(routeLine);
+            routeLine = L.polyline([userPos, [f.lat, f.lon]], { color: '#2563eb', weight: 4, dashArray: '10, 10' }).addTo(map);
+            
+            map.fitBounds(routeLine.getBounds(), { padding: [50, 50] });
+            document.getElementById('target-name').innerText = f.name;
+            document.getElementById('nav-overlay').classList.remove('hidden');
         }
-    }
 
-    function recenterMap() {
-        if (userLat) {
-            map.flyTo([userLat, userLon], 18, { animate: true, duration: 1.5 });
-        } else {
-            alert("Waiting for GPS signal... Try walking outdoors.");
+        function recenterMap() {
+            if (userPos) map.flyTo(userPos, 18);
         }
-    }
 
-    function clearNavigation() {
-        selectedFaculty = null;
-        if (routeLine) map.removeLayer(routeLine);
-        if (destinationMarker) map.removeLayer(destinationMarker);
-        document.getElementById('routeInfo').classList.add('hidden');
-    }
+        function stopNavigation() {
+            if (routeLine) map.removeLayer(routeLine);
+            document.getElementById('nav-overlay').classList.add('hidden');
+        }
 
-    function handleError(err) {
-        document.getElementById('statusIndicator').className = "w-3 h-3 bg-red-500 rounded-full";
-        let msg = "GPS Signal Lost";
-        if(err.code === 1) msg = "Permission Denied";
-        document.getElementById('locationDisplay').innerText = msg;
-    }
-
-    function showAbout() { document.getElementById('aboutModal').classList.replace('hidden', 'flex'); }
-    function hideAbout() { document.getElementById('aboutModal').classList.replace('flex', 'hidden'); }
-
-    window.onload = initMap;
-</script>
-
+        window.onload = initMap;
+    </script>
 </body>
 </html>
